@@ -242,6 +242,9 @@ void process_command(char *command) {
         else if (strcmp(args, "GPIOD") == 0 || strcmp(args, "gpiod") == 0) {
             print_gpio_status_cmd(GPIOD, "GPIOD");
         }
+        else if (strcmp(args, "uart1") == 0 || strcmp(args, "UART1") == 0) {
+            print_uart_status_cmd(args);
+        }
         else if (strcmp(args, "uart2") == 0 || strcmp(args, "UART2") == 0) {
             print_uart_status_cmd(args);
         }
@@ -252,7 +255,8 @@ void process_command(char *command) {
             print_timer_status_cmd(args);
         }
         else {
-            print_shell("Usage: status <gpioa|gpiob|gpioc|gpiod|uart2|rcc|timer1>\r\n");
+            print_shell("Usage: status <gpioa|gpiob|gpioc|gpiod|uart1|uart2|rcc|timer1>\r\n");
+            print_shell("Available peripherals: GPIOA, GPIOB, GPIOC, GPIOD, UART1, UART2, RCC, TIMER1\r\n");
         }
 
     }
@@ -260,18 +264,55 @@ void process_command(char *command) {
         echo_cmd(command);
     }
     else if (strncmp("led", command, 3) == 0) {
-        // led_control(command);
-        // handle led <on|off|toggle>S
+       char  *args = command + 3;
+       while (*args == ' ' || *args == '\t') args++;
+
+       if (strncmp(args, "on", 2) == 0) {
+           HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
+       }
+       else if (strncmp(args, "off", 3) == 0) {
+           HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
+       }
+       else if (strncmp(args, "toggle", 6) == 0) {
+           HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+       }
+       else {
+           print_shell("Usage: led <on|off|toggle>\r\n");
+       }
     }
     else if (strncmp("showreg", command, 7) == 0) {
         char *args = command + 7;
         while (*args == ' ' || *args == '\t') args++; // Skip spaces
 
-        if (strcmp(args, "uart2") == 0) {
-            showreg_uart2();
+        // Handle UART peripherals (STM32F401 has USART1 and USART2)
+        if (strncasecmp(args, "uart", 4) == 0 && strlen(args) >= 5) {
+            USART_TypeDef *uart = NULL;
+            switch (args[4]) {
+                case '1': uart = USART1; break;
+                case '2': uart = USART2; break;
+                default:
+                    print_shell("Available UARTs: uart1, uart2\r\n");
+                    return;
+            }
+            if (uart) {
+                showreg_uart(uart);
+            }
         }
-        else if (strcmp(args, "gpioa") == 0) {
-            showreg_gpio(GPIOA);
+        // Handle GPIO peripherals (STM32F401 has GPIOA, GPIOB, GPIOC, GPIOD)
+        else if (strncasecmp(args, "gpio", 4) == 0 && strlen(args) >= 5) {
+            GPIO_TypeDef *gpio = NULL;
+            switch (args[4]) {
+                case 'a': case 'A': gpio = GPIOA; break;
+                case 'b': case 'B': gpio = GPIOB; break;
+                case 'c': case 'C': gpio = GPIOC; break;
+                case 'd': case 'D': gpio = GPIOD; break;
+                default:
+                    print_shell("Available GPIOs: gpioa, gpiob, gpioc, gpiod\r\n");
+                    return;
+            }
+            if (gpio) {
+                showreg_gpio(gpio);
+            }
         }
         else if (strcmp(args, "rcc") == 0) {
             showreg_rcc();
@@ -280,7 +321,8 @@ void process_command(char *command) {
             showreg_timer1();
         }
         else {
-            print_shell("Usage: showreg <uart2|gpioa|rcc|timer1>\r\n");
+            print_shell("Usage: showreg <uart1|uart2|gpioa|gpiob|gpioc|gpiod|rcc|timer1>\r\n");
+            print_shell("Available peripherals: UART1, UART2, GPIOA, GPIOB, GPIOC, GPIOD, RCC, TIMER1\r\n");
         }
     }
     else if (strncmp("clear", command, 6) == 0) {
@@ -463,7 +505,7 @@ void print_uart_status_cmd(char *args) {
     // TODO: Implementation - High-level UART status
 }
 
-void showreg_uart2() {
+void showreg_uart(USART_TypeDef* USARTx) {
     /*
     === USART2 Raw Registers ===
     SR:   0x000000C0  (00000000000000000000000011000000)
@@ -475,7 +517,27 @@ void showreg_uart2() {
     GTPR: 0x00000000  (00000000000000000000000000000000)
     */
 
-    // TODO: Implementation - Raw register dump
+    char buff[33];
+    uint32_to_binary_string(USARTx->SR, buff, 33);
+    print_shell("SR:   0x%08lX  (%s)\r\n", (unsigned long)USARTx->SR, buff);
+
+    uint32_to_binary_string(USARTx->DR, buff, 33);
+    print_shell("DR:   0x%08lX  (%s)\r\n", (unsigned long)USARTx->DR, buff);
+
+    uint32_to_binary_string(USARTx->BRR, buff, 33);
+    print_shell("BRR:  0x%08lX  (%s)\r\n", (unsigned long)USARTx->BRR, buff);
+
+    uint32_to_binary_string(USARTx->CR1, buff, 33);
+    print_shell("CR1:  0x%08lX  (%s)\r\n", (unsigned long)USARTx->CR1, buff);
+
+    uint32_to_binary_string(USARTx->CR2, buff, 33);
+    print_shell("CR2:  0x%08lX  (%s)\r\n", (unsigned long)USARTx->CR2, buff);
+
+    uint32_to_binary_string(USARTx->CR3, buff, 33);
+    print_shell("CR3:  0x%08lX  (%s)\r\n", (unsigned long)USARTx->CR3, buff);
+
+    uint32_to_binary_string(USARTx->GTPR, buff, 33);
+    print_shell("GTPR: 0x%08lX  (%s)\r\n", (unsigned long)USARTx->GTPR, buff);
 }
 
 void showreg_gpio(GPIO_TypeDef *GPIOx) {
@@ -493,8 +555,37 @@ void showreg_gpio(GPIO_TypeDef *GPIOx) {
     AFR[1]:  0x00000000  (00000000000000000000000000000000)
     */
 
-    // TODO: Implementation - Raw register dump with binary representation
-    print_shell("MODER: %H  (%s)\r\n", GPIOx->MODER);
+    char buff[33];
+
+    uint32_to_binary_string(GPIOx->MODER, buff, 33);
+    print_shell("MODER:   0x%08lX  (%s)\r\n", (unsigned long)GPIOx->MODER, buff);
+
+    uint32_to_binary_string(GPIOx->OTYPER, buff, 33);
+    print_shell("OTYPER:  0x%08lX  (%s)\r\n", (unsigned long)GPIOx->OTYPER, buff);
+
+    uint32_to_binary_string(GPIOx->OSPEEDR, buff, 33);
+    print_shell("OSPEEDR: 0x%08lX  (%s)\r\n", (unsigned long)GPIOx->OSPEEDR, buff);
+
+    uint32_to_binary_string(GPIOx->PUPDR, buff, 33);
+    print_shell("PUPDR:   0x%08lX  (%s)\r\n", (unsigned long)GPIOx->PUPDR, buff);
+
+    uint32_to_binary_string(GPIOx->IDR, buff, 33);
+    print_shell("IDR:     0x%08lX  (%s)\r\n", (unsigned long)GPIOx->IDR, buff);
+
+    uint32_to_binary_string(GPIOx->ODR, buff, 33);
+    print_shell("ODR:     0x%08lX  (%s)\r\n", (unsigned long)GPIOx->ODR, buff);
+
+    uint32_to_binary_string(GPIOx->BSRR, buff, 33);
+    print_shell("BSRR:    0x%08lX  (%s)\r\n", (unsigned long)GPIOx->BSRR, buff);
+
+    uint32_to_binary_string(GPIOx->LCKR, buff, 33);
+    print_shell("LCKR:    0x%08lX  (%s)\r\n", (unsigned long)GPIOx->LCKR, buff);
+
+    uint32_to_binary_string(GPIOx->AFR[0], buff, 33);
+    print_shell("AFR[0]:  0x%08lX  (%s)\r\n", (unsigned long)GPIOx->AFR[0], buff);
+
+    uint32_to_binary_string(GPIOx->AFR[1], buff, 33);
+    print_shell("AFR[1]:  0x%08lX  (%s)\r\n", (unsigned long)GPIOx->AFR[1], buff);
 }
 
 void print_rcc_status_cmd() {
@@ -544,7 +635,45 @@ void showreg_rcc() {
     APB2ENR:  0x00004000  (00000000000000000100000000000000)
     */
 
-    // TODO: Implementation - Raw register dump
+    char buff[33];
+
+    print_shell("=== RCC Raw Registers ===\r\n");
+
+    uint32_to_binary_string(RCC->CR, buff, 33);
+    print_shell("CR:       0x%08lX  (%s)\r\n", (unsigned long)RCC->CR, buff);
+
+    uint32_to_binary_string(RCC->PLLCFGR, buff, 33);
+    print_shell("PLLCFGR:  0x%08lX  (%s)\r\n", (unsigned long)RCC->PLLCFGR, buff);
+
+    uint32_to_binary_string(RCC->CFGR, buff, 33);
+    print_shell("CFGR:     0x%08lX  (%s)\r\n", (unsigned long)RCC->CFGR, buff);
+
+    uint32_to_binary_string(RCC->CIR, buff, 33);
+    print_shell("CIR:      0x%08lX  (%s)\r\n", (unsigned long)RCC->CIR, buff);
+
+    uint32_to_binary_string(RCC->AHB1RSTR, buff, 33);
+    print_shell("AHB1RSTR: 0x%08lX  (%s)\r\n", (unsigned long)RCC->AHB1RSTR, buff);
+
+    uint32_to_binary_string(RCC->AHB2RSTR, buff, 33);
+    print_shell("AHB2RSTR: 0x%08lX  (%s)\r\n", (unsigned long)RCC->AHB2RSTR, buff);
+
+    uint32_to_binary_string(RCC->APB1RSTR, buff, 33);
+    print_shell("APB1RSTR: 0x%08lX  (%s)\r\n", (unsigned long)RCC->APB1RSTR, buff);
+
+    uint32_to_binary_string(RCC->APB2RSTR, buff, 33);
+    print_shell("APB2RSTR: 0x%08lX  (%s)\r\n", (unsigned long)RCC->APB2RSTR, buff);
+
+    uint32_to_binary_string(RCC->AHB1ENR, buff, 33);
+    print_shell("AHB1ENR:  0x%08lX  (%s)\r\n", (unsigned long)RCC->AHB1ENR, buff);
+
+    uint32_to_binary_string(RCC->AHB2ENR, buff, 33);
+    print_shell("AHB2ENR:  0x%08lX  (%s)\r\n", (unsigned long)RCC->AHB2ENR, buff);
+
+    uint32_to_binary_string(RCC->APB1ENR, buff, 33);
+    print_shell("APB1ENR:  0x%08lX  (%s)\r\n", (unsigned long)RCC->APB1ENR, buff);
+
+    uint32_to_binary_string(RCC->APB2ENR, buff, 33);
+    print_shell("APB2ENR:  0x%08lX  (%s)\r\n", (unsigned long)RCC->APB2ENR, buff);
 }
 
 void print_timer_status_cmd(char *args) {
