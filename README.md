@@ -246,6 +246,7 @@ arm-none-eabi-size cmake-build-debug/Stm32-shell.elf
 
 ## Future Enhancements
 
+- [ ] Add RTOS tasks for receiving and transmiting to the terminal
 - [ ] Add more peripheral support (SPI, I2C, ADC)
 - [ ] Implement file system commands
 - [ ] Add network connectivity support
