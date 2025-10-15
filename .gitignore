@@ -1,0 +1,128 @@
+# Build directories
+cmake-build-*/
+build/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!cmake/*.cmake
+
+# Build artifacts
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+*.orig
+
+# STM32CubeMX generated files (keep .ioc but ignore some generated content)
+# Note: Keep .ioc files as they contain project configuration
+*.mxproject
+
+# Keil uVision files
+*.uvguix*
+*.uvoptx
+*.uvprojx.bak
+
+# IAR files
+*.ewt
+*.ewd
+*.ewp.bak
+*.dni
+
+# GCC/ARM toolchain
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# Python cache (if using Python scripts)
+__pycache__/
+*.pyc
+*.pyo
+
+# Node.js (if using any JS tools)
+node_modules/
+npm-debug.log*
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Documentation build
+docs/_build/
+site/
+
+# Coverage reports
+*.gcov
+*.gcno
+*.gcda
+coverage/
+
+# Profiling data
+*.prof
+gmon.out
+
+# Memory dumps
+*.dmp
+*.core
+
+# STM32 specific
+*.axf
+*.out
+*.sym
+*.lss
+*.sym
+*.size
