@@ -15,17 +15,8 @@
   ******************************************************************************
   */
 
-/* Includes ------------------------------------------------------------------*/
-#include "main.h"
-#include "stm32f4xx_it.h"
-
-
-
-
-
-
-
-
+#include "stm32f4xx_hal.h"
+#include "uart_driver.h"
 /******************************************************************************/
 /*           Cortex-M4 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
@@ -115,3 +106,10 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32f4xx.s).                    */
 /******************************************************************************/
 
+void EXTI15_10_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(B1_Pin);
+}
+
+void USART2_IRQHandler(void) {
+    HAL_UART_IRQHandler(UART_GetHandle());
+}
