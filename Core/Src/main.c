@@ -40,14 +40,11 @@ int main(void)
 
     GPIO_Init();
     UART_Init();
-    // shell_init();
+    shell_init();
 
     /* Infinite loop */
     while (1) {
         process_input();
-        // HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
-        // HAL_Delay(200);
-        // print_shell("hi hi\r\n");
     }
 }
 

@@ -1,6 +1,7 @@
 # STM32F401 Interactive Shell
 
 A comprehensive interactive shell for STM32F401 microcontrollers, providing debugging, monitoring, and control capabilities through a UART interface.
+It is still under development and some functions are yet to be implemented.
 
 ## Features
 

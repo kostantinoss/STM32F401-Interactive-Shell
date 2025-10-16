@@ -418,6 +418,37 @@ void print_gpio_status_cmd(GPIO_TypeDef *GPIOx, const char *port_name) {
     */
 
     // TODO: Implementation - High-level summary showing only configured pins
+    print_shell("========== %s ==========\r\n", port_name);
+
+    uint32_t mode;
+    char *modes_map[] = {"Reset", "Output", "Alternate Function", "Analog"};
+
+    uint32_t speed;
+    char *speed_map[] = {"Low", "Medium", "High", "Very high"};
+
+    uint32_t pullup;
+    char *pullup_map[] = {"No", "Pull up", "Pull down", "Reserved"};
+
+    for (int pin = 0; pin < 16; pin++) {
+        mode = (GPIOx->MODER >> (pin * 2)) & 0x3UL;
+        if (mode == RESET)
+            continue;
+
+        speed = (GPIOx->OSPEEDR >> (pin * 2)) & 0x3UL;
+        pullup = (GPIOx->PUPDR >> (pin * 2)) & 0x3UL;
+
+        if (mode == 2) {
+            char *af = "test"; //get_af();
+            print_shell(
+                "Pin %d: %s (%s), Speed: %s, Pull: %s\r\n", pin, modes_map[mode], af, speed_map[speed], pullup_map[pullup]);
+        } else {
+            print_shell("Pin %d: %s, Speed: %s, Pull: %s\r\n", pin, modes_map[mode], speed_map[speed], pullup_map[pullup]);
+        }
+
+
+        // uint32_to_binary_string(mode, buff, 33);
+        // print_shell("pin%d: %s, mode: %s\r\n",pin, buff, modes[mode]);
+    }
 }
 
 const char* get_peripheral_name(const char *port_name, int pin, uint32_t af) {
