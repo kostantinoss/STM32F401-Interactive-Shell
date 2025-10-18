@@ -22,11 +22,17 @@
 #include "shell.h"
 #include <string.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
 
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
+TaskHandle_t BlinkLEDTaskHandle = NULL;
+
+/* Define RTOS Tasks */
+void BlinkLed(void *pvParameters);
 
 /**
   * @brief  The application entry point.
@@ -40,11 +46,30 @@ int main(void)
 
     GPIO_Init();
     UART_Init();
-    shell_init();
+    // shell_init();
+
+    /* Create tasks */
+    if (xTaskCreate(BlinkLed, "LED_BLINK", 256, NULL, 3, &BlinkLEDTaskHandle) != pdPASS) {
+        /* Task creation failed: toggle LED fast to indicate error */
+        while (1) {
+            HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+            HAL_Delay(50);
+        }
+    }
+
+    /* Start scheduler */
+    vTaskStartScheduler();
 
     /* Infinite loop */
     while (1) {
         process_input();
+    }
+}
+
+void BlinkLed(void *pvParameters) {
+    while (1) {
+        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -121,3 +146,35 @@ void assert_failed(uint8_t *file, uint32_t line)
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
 }
 #endif /* USE_FULL_ASSERT */
+
+/* FreeRTOS Hook Functions */
+void vApplicationIdleHook(void) {
+    /* Called when the idle task is running */
+    /* You can put the MCU to sleep here if needed */
+}
+
+void vApplicationTickHook(void) {
+    /* Called on each tick interrupt */
+    /* Be very careful here - keep this VERY short */
+    HAL_IncTick();  // Increment HAL tick
+}
+
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
+    /* Stack overflow detected */
+    (void)xTask;
+    (void)pcTaskName;
+    /* Stop here for debugging */
+    while(1) {
+        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+        HAL_Delay(100);
+    }
+}
+
+void vApplicationMallocFailedHook(void) {
+    /* Memory allocation failed */
+    /* Stop here for debugging */
+    while(1) {
+        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+        HAL_Delay(50);
+    }
+}

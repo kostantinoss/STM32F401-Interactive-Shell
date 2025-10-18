@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.22)
 #
 # User is free to modify the file as much as necessary
 #
+include(FetchContent)
 
 # Setup compiler settings
 set(CMAKE_C_STANDARD 11)
@@ -30,6 +31,31 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
+
+# Set up FreeRTOS
+FetchContent_Declare(
+        freertos_kernel
+        GIT_REPOSITORY https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+        GIT_TAG        main
+)
+
+add_library(freertos_config INTERFACE)
+
+target_include_directories(freertos_config SYSTEM
+        INTERFACE
+        Core/Inc
+)
+
+target_compile_definitions(freertos_config
+        INTERFACE
+        projCOVERAGE_TEST=0
+)
+
+set( FREERTOS_HEAP "4" CACHE STRING "" FORCE)
+# Select the native compile PORT
+set(FREERTOS_PORT "GCC_ARM_CM4F" CACHE STRING "" FORCE)
+
+FetchContent_MakeAvailable(freertos_kernel)
 
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
@@ -63,6 +89,7 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
-
+    freertos_kernel      # FreeRTOS kernel
+    freertos_config
     # Add user defined libraries
 )
