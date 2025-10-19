@@ -24,15 +24,26 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
+
+#define QUEUE_SIZE 256
 
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
-TaskHandle_t BlinkLEDTaskHandle = NULL;
+/* RTOS stuff*/
+SemaphoreHandle_t xBinarySemaphore = NULL;
+SemaphoreHandle_t xConsumeSemaphore = NULL;
+TaskHandle_t xUARTRxTaskHandle = NULL;
+TaskHandle_t xShellTaskHandle = NULL;
+TaskHandle_t xBlinkLEDTaskHandle = NULL;
 
-/* Define RTOS Tasks */
+// Task definitions
 void BlinkLed(void *pvParameters);
+void UARTRxTask(void *pvParameters);
+void ProcessInput(void *pvParameters);
+
 
 /**
   * @brief  The application entry point.
@@ -46,30 +57,40 @@ int main(void)
 
     GPIO_Init();
     UART_Init();
-    // shell_init();
+
+    xBinarySemaphore = xSemaphoreCreateBinary();
+    xConsumeSemaphore = xSemaphoreCreateBinary();
 
     /* Create tasks */
-    if (xTaskCreate(BlinkLed, "LED_BLINK", 256, NULL, 3, &BlinkLEDTaskHandle) != pdPASS) {
-        /* Task creation failed: toggle LED fast to indicate error */
-        while (1) {
-            HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
-            HAL_Delay(50);
-        }
-    }
+    xTaskCreate(UARTRxTask, "UARTRx", 256, NULL, 1, &xUARTRxTaskHandle);
+    xTaskCreate(ProcessInput, "SHELL", 256, NULL, 2, &xShellTaskHandle);
 
     /* Start scheduler */
     vTaskStartScheduler();
 
-    /* Infinite loop */
+    /* Infinite loop... should never reach here */
+    while (1) {}
+}
+
+
+void UARTRxTask(void *pvParameters) {
+    HAL_UART_Receive_IT(&huart2, &chrx, 1);
+
     while (1) {
-        process_input();
+        if (xSemaphoreTake(xBinarySemaphore, portMAX_DELAY) == pdTRUE) {
+            // add mutex lock for access to shared resource
+            buffer_putc(&rx_buffer, chrx);
+            xSemaphoreGive(xConsumeSemaphore);
+        }
     }
 }
 
-void BlinkLed(void *pvParameters) {
+void ProcessInput(void *pvParameters) {
+    shell_init();
     while (1) {
-        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
-        vTaskDelay(pdMS_TO_TICKS(500));
+        if (xSemaphoreTake(xConsumeSemaphore, portMAX_DELAY) == pdTRUE) {
+            process_input();
+        }
     }
 }
 
@@ -126,11 +147,18 @@ void SystemClock_Config(void)
   */
 void Error_Handler(void)
 {
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    HAL_GPIO_WritePin(GPIOA, LD2_Pin, SET);
+    while (1) {
+        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+        HAL_Delay(100);
+        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+        HAL_Delay(100);
+        HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+        HAL_Delay(500);
+
+    }
 }
 #ifdef USE_FULL_ASSERT
 /**

@@ -1,7 +1,8 @@
 # STM32F401 Interactive Shell
 
-A comprehensive interactive shell for STM32F401 microcontrollers, providing debugging, monitoring, and control capabilities through a UART interface.
-It is still under development and some functions are yet to be implemented.
+A comprehensive interactive shell for STM32F401 microcontrollers, providing debugging, monitoring, and control capabilities through a UART interface. Built with FreeRTOS for efficient real-time task management, the shell uses dedicated tasks for UART receive handling and command processing, ensuring responsive and non-blocking user interaction.
+
+**Note:** The project is still under development and some functions are yet to be implemented.
 
 ## Features
 
@@ -19,10 +20,12 @@ It is still under development and some functions are yet to be implemented.
 - **GPIO**: GPIOA, GPIOB, GPIOC, GPIOD
 - **System**: RCC, TIMER1
 
-### ** Features**
+### **Advanced Features**
+- **FreeRTOS Integration** - Multi-task architecture with dedicated tasks for UART reception and shell processing
 - **Command History** - Arrow key navigation through previous commands
 - **Ctrl+C Support** - Interrupt current command
-- **Real-time UART Interrupts** - Non-blocking character reception
+- **Real-time UART Interrupts** - ISR-driven character reception with semaphore-based task synchronization
+- **Non-blocking Design** - Responsive shell operation without blocking the main system
 
 ## Project Structure
 
@@ -158,13 +161,23 @@ st-flash write cmake-build-debug/Stm32-shell.elf 0x08000000
 
 ## Architecture
 
-The project follows a clean modular architecture:
+The project follows a clean modular architecture with FreeRTOS-based task management:
 
-- **`main.c`** - Application entry point and main loop
-- **`shell.c`** - Interactive shell implementation
-- **`uart_driver.c`** - UART communication driver
+- **`main.c`** - Application entry point, FreeRTOS task initialization, and scheduler startup
+- **`shell.c`** - Interactive shell implementation with command parsing and execution
+- **`uart_driver.c`** - UART communication driver with interrupt handling
 - **`gpio_driver.c`** - GPIO control driver
 - **`stm32f4xx_it.c`** - Interrupt service routines
+
+### **FreeRTOS Task Architecture**
+
+#### **UARTRxTask**
+- Receives UART interrupt notifications via binary semaphore
+- Stores received character in shared buffer and signals consumer task (ProcessInput)
+
+#### ***ProcessInput*
+- Consumes characters from shared buffer using binary semaphore
+- Calls processing function for each received character
 
 ### **Key Components**
 
@@ -175,8 +188,9 @@ The project follows a clean modular architecture:
 - Escape sequence handling for terminal control
 
 #### **UART Driver**
-- Non-blocking interrupt-driven communication
-- Automatic error recovery
+- Interrupt-driven character reception
+- HAL_UART_RxCpltCallback triggers semaphore
+- Automatic re-arming for continuous reception
 - Configurable baud rates and settings
 
 #### **GPIO Driver**
@@ -245,13 +259,65 @@ arm-none-eabi-size cmake-build-debug/Stm32-shell.elf
 
 
 
-## Future Enhancements
+## TODO List
 
-- [ ] Add RTOS tasks for receiving and transmitting to the terminal
-- [ ] Add more peripheral support (SPI, I2C, ADC)
-- [ ] Implement file system commands
-- [ ] Add network connectivity support
-- [ ] Add logging and data logging capabilities
+#### Shell Commands (Core/Src/shell.c)
+- [ ] **Complete `print_gpio_status_cmd()` (line 400)**
+  - Add AF register reading (AFR[0] and AFR[1])
+  - Decode alternate function names (USART2, SPI1, I2C1, etc.)
+  - Show pin states (HIGH/LOW) for input/output modes
+  - Display output type (Push-Pull/Open-Drain)
+
+- [ ] **Implement `print_uart_status_cmd()` (line 449)**
+  - Display baud rate, data bits, stop bits, parity
+  - Show pin assignments (TX/RX with AF numbers)
+  - UART enable/disable status
+  - Buffer status (TX empty, RX data available)
+  - Error statistics (overrun, framing, parity errors)
+
+- [ ] **Implement `print_rcc_status_cmd()` (line 562)**
+  - Clock sources status (HSI, HSE, PLL ready/active)
+  - System clock frequencies (SYSCLK, HCLK, PCLK1, PCLK2)
+  - PLL configuration (M, N, P, Q dividers, source)
+  - Enabled peripherals by bus (AHB1, APB1, APB2)
+
+- [ ] **Implement `print_timer_status_cmd()` (line 650)**
+  - Timer enable/disable status
+  - Timer mode (PWM, counting direction)
+  - Prescaler and period (ARR) values
+  - Calculated frequency
+  - Channel configurations (CH1-CH4 status and CCR values)
+  - Current counter value
+
+- [ ] **Implement `showreg_timer1()` (line 678)**
+  - Raw register dump for TIM1
+  - Display CR1, CR2, SMCR, DIER, SR, EGR, CCMR1, CCMR2, CCER
+  - Display CNT, PSC, ARR, CCR1-CCR4
+  - Show both hex and binary representations
+
+- [ ] Use mutex lock for thread safe access to shared character buffer.
+
+### Enhancements
+
+#### Shell Improvements
+- [ ] Add tab completion for commands
+
+#### Peripheral Support
+- [ ] Add SPI peripheral status and control commands
+- [ ] Add I2C peripheral status and scanning
+- [ ] Add ADC reading commands
+
+
+#### System Features
+- [ ] Add memory inspection commands (read/write memory addresses)
+
+#### Debugging & Monitoring
+- [ ] Add logging system with severity levels
+- [ ] Add data logging to memory buffer
+- [ ] Add FreeRTOS heap usage monitoring
+
+
+
 
 ## Contributing
 

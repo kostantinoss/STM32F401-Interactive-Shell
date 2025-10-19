@@ -203,10 +203,8 @@ void process_char(const uint8_t c) {
 }
 
 void process_input() {
-    while (rx_buffer.count > 0) {
-        const char c = buffer_getc(&rx_buffer);
-        process_char(c);
-    }
+    const char c = buffer_getc(&rx_buffer);
+    process_char(c);
 }
 
 void process_command(char *command) {
@@ -399,111 +397,155 @@ void echo_cmd(char *cmd) {
 
 }
 
+// void print_gpio_status_cmd_(GPIO_TypeDef *GPIOx, const char *port_name) {
+//     /*
+//     === GPIOA Status ===
+//     Configured Pins:
+//       PA2:  AF (USART2), Speed: Low, Pull: None
+//       PA3:  AF (USART2), Speed: Low, Pull: None
+//       PA5:  Output, Speed: Low, Pull: None, State: LOW
+//       PA13: AF (SWDIO), Speed: Very High, Pull: Pull-up
+//       PA14: AF (SWCLK), Speed: Low, Pull: Pull-down
+//       PA15: AF (SWO), Speed: Low, Pull: Pull-up
+//
+//     Input States:
+//       IDR: 00000000000000001010000000001100 (Pins 2,3,13,15 = HIGH)
+//
+//     Output States:
+//       ODR: 00000000000000000000000000000000 (All outputs LOW)
+//     */
+//
+//     // TODO: Implementation - High-level summary showing only configured pins
+//     print_shell("========== %s ==========\r\n", port_name);
+//
+//     uint32_t mode;
+//     char *modes_map[] = {"Reset", "Output", "Alternate Function", "Analog"};
+//
+//     uint32_t speed;
+//     char *speed_map[] = {"Low", "Medium", "High", "Very high"};
+//
+//     uint32_t pullup;
+//     char *pullup_map[] = {"No", "Pull up", "Pull down", "Reserved"};
+//
+//     for (int pin = 0; pin < 16; pin++) {
+//         mode = (GPIOx->MODER >> (pin * 2)) & 0x3UL;
+//         if (mode == RESET)
+//             continue;
+//
+//         speed = (GPIOx->OSPEEDR >> (pin * 2)) & 0x3UL;
+//         pullup = (GPIOx->PUPDR >> (pin * 2)) & 0x3UL;
+//
+//         if (mode == 2) {
+//             char *af = "test"; //get_af();
+//             print_shell(
+//                 "Pin %d: %s (%s), Speed: %s, Pull: %s\r\n", pin, modes_map[mode], af, speed_map[speed], pullup_map[pullup]);
+//         } else {
+//             print_shell("Pin %d: %s, Speed: %s, Pull: %s\r\n", pin, modes_map[mode], speed_map[speed], pullup_map[pullup]);
+//         }
+//
+//     }
+// }
+
 void print_gpio_status_cmd(GPIO_TypeDef *GPIOx, const char *port_name) {
-    /*
-    === GPIOA Status ===
-    Configured Pins:
-      PA2:  AF (USART2), Speed: Low, Pull: None
-      PA3:  AF (USART2), Speed: Low, Pull: None
-      PA5:  Output, Speed: Low, Pull: None, State: LOW
-      PA13: AF (SWDIO), Speed: Very High, Pull: Pull-up
-      PA14: AF (SWCLK), Speed: Low, Pull: Pull-down
-      PA15: AF (SWO), Speed: Low, Pull: Pull-up
+    // Helper function to get AF name based on AF number and port
+    const char* get_af_name(GPIO_TypeDef *gpio, uint8_t pin, uint8_t af_num) {
+        // AF mapping for STM32F401 (simplified common ones)
+        // This varies by pin and port, here are the most common:
+        switch (af_num) {
+            case 0:  return "System";
+            case 1:  return "TIM1/TIM2";
+            case 2:  return "TIM3/TIM4/TIM5";
+            case 3:  return "TIM9/TIM10/TIM11";
+            case 4:  return "I2C1/I2C2/I2C3";
+            case 5:  return "SPI1/SPI2/SPI3/SPI4";
+            case 6:  return "SPI2/SPI3";
+            case 7:
+                // USART mapping depends on pin
+                if (gpio == GPIOA && (pin == 2 || pin == 3)) return "USART2";
+                if (gpio == GPIOA && (pin == 9 || pin == 10)) return "USART1";
+                return "USART1/USART2";
+            case 8:  return "USART6";
+            case 9:  return "I2C2/I2C3";
+            case 10: return "OTG_FS";
+            case 12: return "SDIO";
+            case 15: return "EVENTOUT";
+            default: return "Reserved";
+        }
+    }
 
-    Input States:
-      IDR: 00000000000000001010000000001100 (Pins 2,3,13,15 = HIGH)
-
-    Output States:
-      ODR: 00000000000000000000000000000000 (All outputs LOW)
-    */
-
-    // TODO: Implementation - High-level summary showing only configured pins
-    print_shell("========== %s ==========\r\n", port_name);
+    print_shell("========== %s Status ==========\r\n", port_name);
 
     uint32_t mode;
-    char *modes_map[] = {"Reset", "Output", "Alternate Function", "Analog"};
+    char *modes_map[] = {"Input", "Output", "Alternate Function", "Analog"};
 
     uint32_t speed;
-    char *speed_map[] = {"Low", "Medium", "High", "Very high"};
+    char *speed_map[] = {"Low", "Medium", "High", "Very High"};
 
     uint32_t pullup;
-    char *pullup_map[] = {"No", "Pull up", "Pull down", "Reserved"};
+    char *pullup_map[] = {"None", "Pull-up", "Pull-down", "Reserved"};
+
+    uint32_t otype;
+    char *otype_map[] = {"Push-Pull", "Open-Drain"};
+
+    print_shell("Configured Pins:\r\n");
 
     for (int pin = 0; pin < 16; pin++) {
         mode = (GPIOx->MODER >> (pin * 2)) & 0x3UL;
-        if (mode == RESET)
-            continue;
+
+        // Skip unconfigured pins (input mode with no pull)
+        if (mode == 0) {
+            uint32_t pull = (GPIOx->PUPDR >> (pin * 2)) & 0x3UL;
+            if (pull == 0) continue;  // Default state, skip
+        }
 
         speed = (GPIOx->OSPEEDR >> (pin * 2)) & 0x3UL;
         pullup = (GPIOx->PUPDR >> (pin * 2)) & 0x3UL;
+        otype = (GPIOx->OTYPER >> pin) & 0x1UL;
 
-        if (mode == 2) {
-            char *af = "test"; //get_af();
-            print_shell(
-                "Pin %d: %s (%s), Speed: %s, Pull: %s\r\n", pin, modes_map[mode], af, speed_map[speed], pullup_map[pullup]);
-        } else {
-            print_shell("Pin %d: %s, Speed: %s, Pull: %s\r\n", pin, modes_map[mode], speed_map[speed], pullup_map[pullup]);
+        print_shell("  P%c%d: ", port_name[4], pin);  // Extract port letter from "GPIOA"
+        print_shell("%s", modes_map[mode]);
+
+        // For Alternate Function mode, show AF number and name
+        if (mode == 2) {  // Alternate Function
+            uint8_t af_num;
+
+            // Read from AFR[0] (AFRL) for pins 0-7, AFR[1] (AFRH) for pins 8-15
+            if (pin < 8) {
+                af_num = (GPIOx->AFR[0] >> (pin * 4)) & 0xFUL;
+            } else {
+                af_num = (GPIOx->AFR[1] >> ((pin - 8) * 4)) & 0xFUL;
+            }
+
+            const char *af_name = get_af_name(GPIOx, pin, af_num);
+            print_shell(" (AF%d: %s)", af_num, af_name);
         }
 
+        // Show output type for output/AF modes
+        if (mode == 1 || mode == 2) {
+            print_shell(", %s", otype_map[otype]);
+        }
 
-        // uint32_to_binary_string(mode, buff, 33);
-        // print_shell("pin%d: %s, mode: %s\r\n",pin, buff, modes[mode]);
-    }
-}
+        print_shell(", Speed: %s, Pull: %s", speed_map[speed], pullup_map[pullup]);
 
-const char* get_peripheral_name(const char *port_name, int pin, uint32_t af) {
-    if (af == 0) return "GPIO";
+        // For output pins, show current state
+        if (mode == 1) {  // Output mode
+            uint32_t pin_state = (GPIOx->ODR >> pin) & 0x1UL;
+            print_shell(", State: %s", pin_state ? "HIGH" : "LOW");
+        }
 
-    char port = port_name[3]; // Extract port letter (A, B, C, etc.)
+        // For input/AF pins, show current input state
+        if (mode == 0 || mode == 2) {
+            uint32_t pin_state = (GPIOx->IDR >> pin) & 0x1UL;
+            print_shell(", Input: %s", pin_state ? "HIGH" : "LOW");
+        }
 
-    // Handle the most common cases with specific pin mapping
-    if (af == 7) { // USART1/2/3
-        if (port == 'A') {
-            if (pin == 2 || pin == 3) return "USART2";
-            if (pin == 9 || pin == 10) return "USART1";
-        }
-        if (port == 'B') {
-            if (pin == 10 || pin == 11) return "USART3";
-        }
-        if (port == 'C') {
-            if (pin == 10 || pin == 11) return "USART3";
-        }
-        return "USART";
-    }
-
-    if (af == 8) { // UART4/5
-        if (port == 'A') {
-            if (pin == 0 || pin == 1) return "UART4";
-        }
-        if (port == 'C') {
-            if (pin == 10 || pin == 11) return "UART4";
-        }
-        if (port == 'B') {
-            if (pin == 12 || pin == 13) return "UART5";
-        }
-        if (port == 'C') {
-            if (pin == 12 || pin == 13) return "UART5";
-        }
-        return "UART4/5";
+        print_shell("\r\n");
     }
 
-    // Generic fallback for other alternate functions
-    switch (af) {
-        case 1: return "TIM2/TIM5";
-        case 2: return "TIM3/TIM4";
-        case 3: return "TIM9/TIM10";
-        case 4: return "I2C";
-        case 5: return "SPI1";
-        case 6: return "SPI2/SPI3";
-        case 9: return "CAN1";
-        case 10: return "USB";
-        case 11: return "SDIO";
-        case 12: return "FSMC";
-        case 13: return "DCMI";
-        case 14: return "EVENTOUT";
-        case 15: return "ANALOG";
-        default: return "Unknown";
-    }
+    // Show raw register values for reference
+    print_shell("\r\nRegister Summary:\r\n");
+    print_shell("  IDR: 0x%04X  ", (unsigned int)(GPIOx->IDR & 0xFFFF));
+    print_shell("  ODR: 0x%04X\r\n", (unsigned int)(GPIOx->ODR & 0xFFFF));
 }
 
 void print_uart_status_cmd(char *args) {

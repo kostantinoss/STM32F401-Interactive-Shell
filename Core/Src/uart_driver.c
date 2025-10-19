@@ -3,11 +3,16 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include "FreeRTOS.h"
 
-#include "shell.h"
+#include "projdefs.h"
+#include "queue.h"
+#include "semphr.h"
+
 
 uint8_t chrx;
-static UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart2;
+extern SemaphoreHandle_t xBinarySemaphore;
 
 UART_HandleTypeDef* UART_GetHandle(void) {
     return &huart2;
@@ -25,7 +30,7 @@ void UART_Init(void) {
         Error_Handler();
     }
 
-    HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
@@ -40,6 +45,18 @@ void UART_Print(const char *format, ...) {
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    buffer_putc(&rx_buffer, chrx);
-    HAL_UART_Receive_IT(UART_GetHandle(), &chrx, 1);
+    /* Notify receiver task to put char into the buffer
+     * Signal with semaphore to UARTRxTask
+     * Yield to higer priority task
+     */
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    xSemaphoreGiveFromISR(xBinarySemaphore, &xHigherPriorityTaskWoken);
+    HAL_UART_Receive_IT(huart, &chrx, 1);
+
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
+    // old implementation
+    //buffer_putc(&rx_buffer, chrx);
+    //HAL_UART_Receive_IT(UART_GetHandle(), &chrx, 1);
 }

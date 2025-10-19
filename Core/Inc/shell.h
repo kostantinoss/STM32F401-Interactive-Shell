@@ -56,7 +56,6 @@ void echo_cmd(char *cmd);
 
 // GPIO status functions
 void print_gpio_status_cmd(GPIO_TypeDef *GPIOx, const char *port_name);
-const char* get_peripheral_name(const char *port_name, int pin, uint32_t af);
 
 // UART status functions
 void print_uart_status_cmd(char *args);
